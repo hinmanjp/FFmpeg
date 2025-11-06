@@ -752,6 +752,52 @@ static int input_thread(void *arg)
         DemuxStream *ds;
         unsigned send_flags = 0;
 
+        // Check control state with mutex protection
+        pthread_mutex_lock(&d->control_mutex);
+        int is_paused = d->paused;
+        int seek_req = d->seek_requested;
+        int64_t seek_pos = d->seek_target;
+        pthread_mutex_unlock(&d->control_mutex);
+
+        // Handle pause state
+        if (is_paused) {
+            av_usleep(10000); // Sleep 10ms while paused
+            continue;
+        }
+
+        // Handle seek request
+        if (seek_req) {
+            av_log(d, AV_LOG_INFO, "Seeking input #%d to position %"PRId64"\n", 
+                   f->index, seek_pos);
+            
+            // Flush any buffered packets
+            ret = demux_bsf_flush(d, &dt);
+            if (ret < 0)
+                av_log(d, AV_LOG_WARNING, "BSF flush failed during seek: %s\n", 
+                       av_err2str(ret));
+
+            // Perform the seek
+            ret = avformat_seek_file(f->ctx, -1, INT64_MIN, seek_pos, 
+                                     seek_pos, 0);
+            if (ret < 0) {
+                av_log(d, AV_LOG_ERROR, "Seek failed for input #%d: %s\n", 
+                       f->index, av_err2str(ret));
+            } else {
+                av_log(d, AV_LOG_INFO, "Seek successful for input #%d\n", 
+                       f->index);
+                // Reset timestamp tracking after seek
+                d->ts_offset_discont = 0;
+                d->last_ts = AV_NOPTS_VALUE;
+            }
+
+            // Clear seek request
+            pthread_mutex_lock(&d->control_mutex);
+            d->seek_requested = 0;
+            pthread_mutex_unlock(&d->control_mutex);
+            
+            continue;
+        }
+
         ret = av_read_frame(f->ctx, dt.pkt_demux);
 
         if (ret == AVERROR(EAGAIN)) {
