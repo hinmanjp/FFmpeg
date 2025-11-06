@@ -1878,7 +1878,13 @@ static Demuxer *demux_alloc(void)
         nb_input_files--;
         return NULL;
     }
-    pthread_mutex_init(&d->control_mutex, NULL);
+    
+    // Initialize mutex with explicit attributes to avoid priority protocol issues
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+    pthread_mutex_init(&d->control_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 
     return d;
 }

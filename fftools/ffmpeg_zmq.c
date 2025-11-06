@@ -265,11 +265,14 @@ int ffmpeg_zmq_init(const char *zmq_endpoint)
         zmq_close(zmq_ctx->zmq_socket);
         zmq_ctx_destroy(zmq_ctx->zmq_context);
         av_freep(&zmq_ctx);
-        return AVERROR_EXTERNAL;
-    }
+        return AVERROR_EXTERNAL;    }
     
-    // Initialize mutex
-    pthread_mutex_init(&zmq_ctx->mutex, NULL);
+    // Initialize mutex with explicit attributes to avoid priority protocol issues
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+    pthread_mutex_init(&zmq_ctx->mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
     
     // Start listener thread
     zmq_ctx->running = 1;
