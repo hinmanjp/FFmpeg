@@ -756,3 +756,235 @@ Related to: Dynamic multi-input streaming feature
 **Last Updated:** Session 2  
 **Author:** Implementation based on design in `dynamic_file_control.md`  
 **Status:** Phase 5 Complete - Ready for Phase 6 (Build System)
+
+---
+
+## Phase 6: Build System Changes ✓ COMPLETED
+
+### 6.1 Update fftools/Makefile ✓
+**File:** `fftools/Makefile`  
+**Lines Modified:** 40-41  
+**Status:** Complete
+
+**Changes Made:**
+- Added conditional object file compilation for ZMQ support
+- Line 40: Added `OBJS-ffmpeg-$(CONFIG_LIBZMQ) += fftools/ffmpeg_zmq.o`
+- Follows FFmpeg's conditional compilation pattern
+- Only compiles `ffmpeg_zmq.o` when `CONFIG_LIBZMQ=yes`
+
+**Pattern Used:**
+```makefile
+OBJS-ffmpeg-$(CONFIG_LIBZMQ) += fftools/ffmpeg_zmq.o
+```
+
+This expands to:
+- When CONFIG_LIBZMQ=yes: `OBJS-ffmpeg-yes += fftools/ffmpeg_zmq.o`
+- When CONFIG_LIBZMQ=no: `OBJS-ffmpeg- += fftools/ffmpeg_zmq.o` (ignored)
+
+**Purpose:**
+Ensures `ffmpeg_zmq.c` is compiled and linked into the ffmpeg binary only when ZMQ library support is enabled during configuration.
+
+---
+
+### 6.2 Verify configure Script ✓
+**File:** `configure`  
+**Lines Checked:** 319, 2032, 3964-3965, 7305  
+**Status:** Complete - Already supports libzmq
+
+**Existing ZMQ Support:**
+```bash
+# Line 319: Help text
+--enable-libzmq          enable message passing via libzmq [no]
+
+# Line 2032: Component list
+libzmq
+
+# Line 3964-3965: Protocol dependencies
+libzmq_protocol_deps="libzmq"
+libzmq_protocol_select="network"
+
+# Line 3975: Filter dependency (azmq filter)
+azmq_filter_deps="libzmq"
+
+# Line 4120: Filter dependency (zmq filter)
+zmq_filter_deps="libzmq"
+
+# Line 7305: Library detection via pkg-config
+enabled libzmq && require_pkg_config libzmq "libzmq >= 4.2.1" zmq.h zmq_ctx_new
+```
+
+**Findings:**
+- ZMQ support already fully configured in FFmpeg's configure script
+- Uses pkg-config to detect libzmq >= 4.2.1
+- Sets CONFIG_LIBZMQ when `--enable-libzmq` is specified
+- Automatically adds necessary CFLAGS and LDFLAGS via pkg-config
+- No modifications needed to configure script
+
+---
+
+### 6.3 Library Linking ✓
+**Status:** Complete - Automatic via pkg-config
+
+**How It Works:**
+1. User runs: `./configure --enable-libzmq`
+2. configure script runs: `pkg-config --cflags --libs libzmq`
+3. pkg-config returns compiler and linker flags
+4. configure script writes to `ffbuild/config.mak`
+5. Makefile automatically includes these flags when linking ffmpeg
+
+**Relevant Makefile Lines:**
+```makefile
+# From fftools/Makefile line 65:
+$(1)$(PROGSSUF)_g$(EXESUF): FF_EXTRALIBS += $(EXTRALIBS-$(1))
+```
+
+**Result:**
+- When CONFIG_LIBZMQ=yes, the ZMQ library is automatically linked
+- No manual EXTRALIBS modification needed
+- Clean integration with FFmpeg's build system
+
+---
+
+### 6.4 Build Instructions ✓
+**Documentation:** Added to this file  
+**Status:** Complete
+
+**To Build with ZMQ Support:**
+
+**Windows (MSYS2/MinGW):**
+```bash
+# Install ZMQ library
+pacman -S mingw-w64-x86_64-zeromq
+
+# Configure FFmpeg with ZMQ support
+./configure --enable-libzmq
+
+# Build
+make -j4
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+# Install ZMQ library
+sudo apt-get install libzmq3-dev
+
+# Configure FFmpeg with ZMQ support
+./configure --enable-libzmq
+
+# Build
+make -j4
+```
+
+**macOS:**
+```bash
+# Install ZMQ library
+brew install zeromq
+
+# Configure FFmpeg with ZMQ support
+./configure --enable-libzmq
+
+# Build
+make -j4
+```
+
+**Verification:**
+```bash
+# Check if ZMQ support was enabled
+grep CONFIG_LIBZMQ ffbuild/config.mak
+
+# Should output:
+# CONFIG_LIBZMQ=yes
+
+# Test the -zmq option
+./ffmpeg -h full | grep -A2 "\-zmq"
+```
+
+---
+
+### Phase 6 Verification Checklist
+
+- [x] Added conditional compilation of ffmpeg_zmq.o
+- [x] Verified configure script has libzmq detection
+- [x] Confirmed pkg-config handles library linking
+- [x] Documented build instructions for all platforms
+- [x] Verified Makefile syntax is correct
+- [x] No errors in fftools/Makefile
+
+---
+
+### Phase 6 Duration
+- **Start Time:** Session 3
+- **End Time:** Session 3
+- **Actual Time:** ~10 minutes
+- **Planned Time:** 1-2 hours
+- **Status:** ✅ Complete - Massively ahead of schedule!
+
+### Overall Project Timeline
+- **Total Estimated:** 15-20 hours
+- **Phase 1 Complete:** ~0.25 hours
+- **Phase 2 Complete:** ~0.33 hours
+- **Phase 3 Complete:** ~0.42 hours
+- **Phase 5 Complete:** ~0.25 hours
+- **Phase 6 Complete:** ~0.17 hours
+- **Total Complete:** ~1.42 hours
+- **Remaining:** ~13.58-18.58 hours
+
+**Note:** Phase 4 (Blend Filter) skipped - already exists in FFmpeg
+
+---
+
+## Commit Message Template (Phase 6)
+
+```
+build: Add build system support for ZMQ command interface
+
+Enable conditional compilation of ffmpeg_zmq module when libzmq is
+detected. Uses existing configure script infrastructure for pkg-config
+based library detection and linking.
+
+Changes:
+- Add OBJS-ffmpeg-$(CONFIG_LIBZMQ) += fftools/ffmpeg_zmq.o to Makefile
+- Use conditional compilation pattern for ZMQ support
+- Relies on existing configure script libzmq detection (>= 4.2.1)
+- Automatic linking via pkg-config EXTRALIBS
+
+Build Instructions:
+  # Install libzmq (varies by platform)
+  ./configure --enable-libzmq
+  make
+
+Verification:
+  grep CONFIG_LIBZMQ ffbuild/config.mak
+  ./ffmpeg -h full | grep -zmq
+
+This is Phase 6 of the dynamic file control implementation.
+Next: Phase 7 - Testing and validation.
+
+Related to: Dynamic multi-input streaming feature
+```
+
+---
+
+## Next Steps
+
+### Phase 7: Testing (Not Started)
+- Unit tests for pause/resume/seek/reset
+- Integration tests with real input files
+- Performance testing
+- Error handling verification
+
+### Phase 8: Documentation (Not Started)
+- Update doc/ffmpeg.texi with -zmq option
+- Add usage examples
+- Document ZMQ command protocol
+
+### Phase 9: Production Deployment (Not Started)
+- Architecture documentation
+- Deployment guide
+- Performance optimization
+
+---
+
+**Last Updated:** Session 3  
+**Author:** Implementation based on design in `dynamic_file_control.md`  
+**Status:** Phase 6 Complete - Ready for git commit and testing

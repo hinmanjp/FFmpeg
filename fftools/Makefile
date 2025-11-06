@@ -38,6 +38,8 @@ OBJS-ffmpeg +=                  \
     $(OBJS-resman)                    \
     $(RESOBJS)                        \
 
+OBJS-ffmpeg-$(CONFIG_LIBZMQ)    += fftools/ffmpeg_zmq.o
+
 OBJS-ffprobe +=                       \
     fftools/textformat/avtextformat.o \
     fftools/textformat/tf_compact.o   \
