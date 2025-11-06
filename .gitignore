@@ -47,3 +47,5 @@
 /libavfilter/vulkan/*.c
 /.*/
 !/.forgejo/
+ffmpeg-*.tar.gz
+build_output.txt
