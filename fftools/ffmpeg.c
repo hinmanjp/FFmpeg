@@ -81,6 +81,7 @@
 #include "ffmpeg.h"
 #include "ffmpeg_sched.h"
 #include "ffmpeg_utils.h"
+#include "ffmpeg_zmq.h"
 #include "graph/graphprint.h"
 
 const char program_name[] = "ffmpeg";
@@ -1019,6 +1020,16 @@ int main(int argc, char **argv)
         goto finish;
     }
 
+    /* initialize ZMQ command interface if endpoint specified */
+    if (zmq_endpoint) {
+        ret = ffmpeg_zmq_init(zmq_endpoint);
+        if (ret < 0) {
+            av_log(NULL, AV_LOG_ERROR, "Failed to initialize ZMQ interface: %s\n",
+                   av_err2str(ret));
+            goto finish;
+        }
+    }
+
     current_time = ti = get_benchmark_time_stamps();
     ret = transcode(sch);
     if (ret >= 0 && do_benchmark) {
@@ -1038,6 +1049,10 @@ int main(int argc, char **argv)
 finish:
     if (ret == AVERROR_EXIT)
         ret = 0;
+
+    /* cleanup ZMQ interface if it was initialized */
+    if (zmq_endpoint)
+        ffmpeg_zmq_cleanup();
 
     ffmpeg_cleanup(ret);
 

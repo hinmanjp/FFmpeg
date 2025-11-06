@@ -52,6 +52,7 @@
 HWDevice *filter_hw_device;
 
 char *vstats_filename;
+char *zmq_endpoint = NULL;  // ZMQ endpoint for dynamic input control
 
 float dts_delta_threshold   = 10;
 float dts_error_threshold   = 3600*30;
@@ -1749,6 +1750,9 @@ const OptionDef options[] = {
     { "start_at_zero",          OPT_TYPE_BOOL, OPT_EXPERT,
         { &start_at_zero },
         "shift input timestamps to start at 0 when using copyts" },
+    { "zmq",                    OPT_TYPE_STRING, OPT_EXPERT,
+        { &zmq_endpoint },
+        "enable ZMQ command interface for runtime input control", "endpoint" },
     { "copytb",                 OPT_TYPE_INT, OPT_EXPERT,
         { &copy_tb },
         "copy input stream time base when stream copying", "mode" },
@@ -1857,7 +1861,7 @@ const OptionDef options[] = {
     { "dump_attachment",     OPT_TYPE_STRING, OPT_SPEC | OPT_EXPERT | OPT_INPUT,
         { .off = OFFSET(dump_attachment) },
         "extract an attachment into a file", "filename" },
-    { "stream_loop",         OPT_TYPE_INT, OPT_EXPERT | OPT_INPUT | OPT_OFFSET,
+    { "stream_loop",         OPT_TYPE_INT,  OPT_EXPERT | OPT_INPUT | OPT_OFFSET,
         { .off = OFFSET(loop) }, "set number of times input stream shall be looped", "loop count" },
     { "debug_ts",            OPT_TYPE_BOOL, OPT_EXPERT,
         { &debug_ts },
@@ -2047,8 +2051,8 @@ const OptionDef options[] = {
         { .off = OFFSET(apad) },
         "audio pad", "" },
     { "atag",             OPT_TYPE_FUNC,    OPT_AUDIO | OPT_FUNC_ARG  | OPT_EXPERT | OPT_PERFILE | OPT_OUTPUT | OPT_HAS_CANON,
-        { .func_arg = opt_old2new },
-        "force audio tag/fourcc", "fourcc/tag",
+        { .func_arg = opt_old2new }
+        , "force audio tag/fourcc", "fourcc/tag",
         .u1.name_canon = "tag", },
     { "sample_fmt",       OPT_TYPE_STRING,  OPT_AUDIO | OPT_EXPERT | OPT_PERSTREAM | OPT_INPUT | OPT_OUTPUT,
         { .off = OFFSET(sample_fmts) },
