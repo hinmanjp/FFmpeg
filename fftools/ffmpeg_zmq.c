@@ -153,12 +153,14 @@ static void *zmq_thread_func(void *arg)
             av_log(NULL, AV_LOG_WARNING, "Input ID %d out of range (nb_input_files=%d)\n", 
                    input_id, nb_input_files);
             zmq_send(ctx->zmq_socket, "ERROR: Input ID out of range", 28, 0);
-            continue;
-        }
+            continue;        }
         
         // Get demuxer for this input
         InputFile *ifile = input_files[input_id];
         Demuxer *d = demuxer_from_ifile(ifile);
+        
+        av_log(NULL, AV_LOG_INFO, "[ZMQ] Processing %s command for input #%d, Demuxer=%p, mutex=%p\n", 
+               cmd, input_id, d, &d->control_mutex);
         
         // Execute command
         if (strcmp(cmd, "pause") == 0) {
@@ -201,14 +203,27 @@ static void *zmq_thread_func(void *arg)
             av_log(NULL, AV_LOG_INFO, "Seek requested for input #%d to %.2f seconds\n", 
                    input_id, seek_time);
             zmq_send(ctx->zmq_socket, "OK: Seek requested", 18, 0);
-            
-        } else if (strcmp(cmd, "reset") == 0) {
+              } else if (strcmp(cmd, "reset") == 0) {
             // Reset = seek to beginning and unpause
-            pthread_mutex_lock(&d->control_mutex);
+            av_log(NULL, AV_LOG_INFO, "[ZMQ] Reset command for input #%d - about to lock mutex at %p\n", 
+                   input_id, &d->control_mutex);
+            
+            int lock_ret = pthread_mutex_lock(&d->control_mutex);
+            if (lock_ret != 0) {
+                av_log(NULL, AV_LOG_ERROR, "[ZMQ] MUTEX LOCK FAILED: error=%d (%s)\n", 
+                       lock_ret, strerror(lock_ret));
+                zmq_send(ctx->zmq_socket, "ERROR: Mutex lock failed", 24, 0);
+                continue;
+            }
+            
+            av_log(NULL, AV_LOG_INFO, "[ZMQ] Mutex locked successfully, setting control flags\n");
             d->seek_requested = 1;
             d->seek_target = 0;
             d->paused = 0;
+            
+            av_log(NULL, AV_LOG_INFO, "[ZMQ] Control flags set, about to unlock mutex\n");
             pthread_mutex_unlock(&d->control_mutex);
+            av_log(NULL, AV_LOG_INFO, "[ZMQ] Mutex unlocked successfully\n");
             
             av_log(NULL, AV_LOG_INFO, "Reset input #%d (seek to start)\n", input_id);
             zmq_send(ctx->zmq_socket, "OK: Reset", 9, 0);

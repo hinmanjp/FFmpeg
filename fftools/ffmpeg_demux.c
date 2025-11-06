@@ -758,6 +758,11 @@ static int input_thread(void *arg)
         int seek_req = d->seek_requested;
         int64_t seek_pos = d->seek_target;
         pthread_mutex_unlock(&d->control_mutex);
+        
+        if (seek_req) {
+            av_log(d, AV_LOG_INFO, "[DEMUX] Detected seek request for input #%d to pos %"PRId64"\n", 
+                   f->index, seek_pos);
+        }
 
         // Handle pause state
         if (is_paused) {
@@ -1881,10 +1886,20 @@ static Demuxer *demux_alloc(void)
     
     // Initialize mutex without priority protocol to avoid TPP errors across threads
     pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
-    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_NONE);
-    pthread_mutex_init(&d->control_mutex, &attr);
+    int ret;
+    
+    ret = pthread_mutexattr_init(&attr);
+    av_log(d, AV_LOG_INFO, "[DEMUX] Mutex attr init for input #%d: ret=%d\n", d->f.index, ret);
+    
+    ret = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+    av_log(d, AV_LOG_INFO, "[DEMUX] Mutex settype ERRORCHECK: ret=%d\n", ret);
+    
+    ret = pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_NONE);
+    av_log(d, AV_LOG_INFO, "[DEMUX] Mutex setprotocol PRIO_NONE: ret=%d\n", ret);
+    
+    ret = pthread_mutex_init(&d->control_mutex, &attr);
+    av_log(d, AV_LOG_INFO, "[DEMUX] Mutex init at %p: ret=%d\n", &d->control_mutex, ret);
+    
     pthread_mutexattr_destroy(&attr);
 
     return d;
