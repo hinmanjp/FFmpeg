@@ -151,6 +151,13 @@ typedef struct Demuxer {
     int                   read_started;
     int                   nb_streams_used;
     int                   nb_streams_finished;
+
+    // Playback control fields for dynamic pause/seek/reset
+    int                   paused;              // 1 if demuxer is paused
+    int                   seek_requested;       // 1 if seek is pending
+    int64_t               seek_target;          // Target position for seek (in AV_TIME_BASE units)
+    AVPacket             *pause_frame;          // Last frame before pause (for smooth resume)
+    pthread_mutex_t       control_mutex;        // Mutex for thread-safe control
 } Demuxer;
 
 typedef struct DemuxThreadContext {
@@ -925,6 +932,10 @@ void ifile_close(InputFile **pf)
     avformat_close_input(&f->ctx);
 
     av_packet_free(&d->pkt_heartbeat);
+
+    // Cleanup playback control resources
+    av_packet_free(&d->pause_frame);
+    pthread_mutex_destroy(&d->control_mutex);
 
     av_freep(pf);
 }
@@ -1808,6 +1819,20 @@ static Demuxer *demux_alloc(void)
     d->f.index = nb_input_files - 1;
 
     snprintf(d->log_name, sizeof(d->log_name), "in#%d", d->f.index);
+
+    // Initialize playback control state
+    d->paused = 0;
+    d->seek_requested = 0;
+    d->seek_target = 0;
+    d->pause_frame = av_packet_alloc();
+    if (!d->pause_frame) {
+        av_log(d, AV_LOG_ERROR, "Failed to allocate pause frame packet\n");
+        // Note: cleanup will be handled by caller on NULL return
+        av_freep(&d);
+        nb_input_files--;
+        return NULL;
+    }
+    pthread_mutex_init(&d->control_mutex, NULL);
 
     return d;
 }
