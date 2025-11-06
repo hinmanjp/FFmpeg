@@ -267,10 +267,11 @@ int ffmpeg_zmq_init(const char *zmq_endpoint)
         av_freep(&zmq_ctx);
         return AVERROR_EXTERNAL;    }
     
-    // Initialize mutex with explicit attributes to avoid priority protocol issues
+    // Initialize mutex without priority protocol to avoid TPP errors across threads
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_NONE);
     pthread_mutex_init(&zmq_ctx->mutex, &attr);
     pthread_mutexattr_destroy(&attr);
     

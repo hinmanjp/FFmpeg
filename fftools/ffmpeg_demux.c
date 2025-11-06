@@ -1879,10 +1879,11 @@ static Demuxer *demux_alloc(void)
         return NULL;
     }
     
-    // Initialize mutex with explicit attributes to avoid priority protocol issues
+    // Initialize mutex without priority protocol to avoid TPP errors across threads
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_NONE);
     pthread_mutex_init(&d->control_mutex, &attr);
     pthread_mutexattr_destroy(&attr);
 
