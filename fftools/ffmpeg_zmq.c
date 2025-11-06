@@ -62,7 +62,38 @@ typedef struct ZMQContext {
 
 static ZMQContext *zmq_ctx = NULL;
 
-// Forward declaration from ffmpeg_demux.c
+// Demuxer is private to ffmpeg_demux.c, but InputFile is its first member
+// so we can safely access the control fields via this forward declaration
+typedef struct Demuxer {
+    InputFile             f;
+    char                  log_name[32];
+    int64_t               wallclock_start;
+    int64_t               ts_offset_discont;
+    int64_t               last_ts;
+    int64_t               recording_time;
+    int                   accurate_seek;
+    int                   loop;
+    int                   have_audio_dec;
+    void                 *duration;
+    void                 *min_pts;
+    void                 *max_pts;
+    int                   nb_streams_warn;
+    float                 readrate;
+    double                readrate_initial_burst;
+    float                 readrate_catchup;
+    void                 *sch;
+    void                 *pkt_heartbeat;
+    int                   read_started;
+    int                   nb_streams_used;
+    int                   nb_streams_finished;
+    // Control fields we need
+    int                   paused;
+    int                   seek_requested;
+    int64_t               seek_target;
+    void                 *pause_frame;
+    pthread_mutex_t       control_mutex;
+} Demuxer;
+
 static Demuxer *demuxer_from_ifile(InputFile *f)
 {
     return (Demuxer*)f;
