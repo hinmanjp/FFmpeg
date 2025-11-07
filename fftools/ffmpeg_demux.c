@@ -775,7 +775,7 @@ static int input_thread(void *arg)
             av_log(d, AV_LOG_INFO, "Seeking input #%d to position %"PRId64"\n", 
                    f->index, seek_pos);
             
-            // Flush any buffered packets
+            // Flush any buffered packets in BSFs
             ret = demux_bsf_flush(d, &dt);
             if (ret < 0)
                 av_log(d, AV_LOG_WARNING, "BSF flush failed during seek: %s\n", 
@@ -790,6 +790,10 @@ static int input_thread(void *arg)
             } else {
                 av_log(d, AV_LOG_INFO, "Seek successful for input #%d\n", 
                        f->index);
+                
+                // Flush demuxer's internal packet buffers to discard old frames
+                avformat_flush(f->ctx);
+                
                 // Reset timestamp tracking after seek
                 d->ts_offset_discont = 0;
                 d->last_ts = AV_NOPTS_VALUE;
