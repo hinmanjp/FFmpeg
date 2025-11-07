@@ -29,7 +29,7 @@
 /**
  * Initialize ZMQ command listener thread.
  * 
- * @param zmq_endpoint  ZMQ endpoint string (e.g., "tcp://*:5555")
+ * @param zmq_endpoint  ZMQ endpoint string (e.g., "tcp://127.0.0.1:5555")
  * @return 0 on success, negative AVERROR on failure
  */
 int ffmpeg_zmq_init(const char *zmq_endpoint);

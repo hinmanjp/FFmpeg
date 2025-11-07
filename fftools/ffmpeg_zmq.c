@@ -44,6 +44,7 @@
 
 #include "ffmpeg.h"
 #include "ffmpeg_zmq.h"
+#include "ffmpeg_utils.h"
 
 #include "libavutil/avassert.h"
 #include "libavutil/log.h"
@@ -64,11 +65,7 @@ static ZMQContext *zmq_ctx = NULL;
 
 // Demuxer is private to ffmpeg_demux.c, but InputFile is its first member
 // so we can safely access the control fields via this forward declaration
-// Timestamp is a struct with int64_t ts + AVRational tb (16 bytes)
-typedef struct {
-    int64_t    ts;
-    AVRational tb;
-} Timestamp;
+// Timestamp is defined in ffmpeg_utils.h and is 16 bytes (int64_t + AVRational)
 
 typedef struct Demuxer {
     InputFile             f;
