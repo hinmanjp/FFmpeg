@@ -793,12 +793,18 @@ static int input_thread(void *arg)
                 
                 // Flush demuxer's internal packet buffers to discard old frames
                 avformat_flush(f->ctx);
+                av_log(d, AV_LOG_INFO, "Demuxer buffers flushed for input #%d\n", 
+                       f->index);
                 
                 // Signal discontinuity to downstream (decoder/filtergraph/encoder)
                 // This flushes the entire pipeline
                 av_packet_unref(dt.pkt_demux);
                 dt.pkt_demux->stream_index = -1;
+                av_log(d, AV_LOG_INFO, "Sending discontinuity signal for input #%d (stream_index=-1)\n", 
+                       f->index);
                 ret = sch_demux_send(d->sch, f->index, dt.pkt_demux, 0);
+                av_log(d, AV_LOG_INFO, "Discontinuity signal sent, result: %s\n",
+                       ret < 0 ? av_err2str(ret) : "SUCCESS");
                 if (ret < 0 && ret != AVERROR_EOF) {
                     av_log(d, AV_LOG_ERROR, "Failed to send discontinuity signal: %s\n",
                            av_err2str(ret));
@@ -807,6 +813,8 @@ static int input_thread(void *arg)
                 // Reset timestamp tracking after seek
                 d->ts_offset_discont = 0;
                 d->last_ts = AV_NOPTS_VALUE;
+                av_log(d, AV_LOG_INFO, "Timestamp tracking reset for input #%d\n", 
+                       f->index);
             }
 
             // Clear seek request
