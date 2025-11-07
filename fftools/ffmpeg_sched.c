@@ -2056,29 +2056,43 @@ static int demux_flush(Scheduler *sch, SchDemux *d, AVPacket *pkt)
 
         for (unsigned j = 0; j < ds->nb_dst; j++) {
             const SchedulerNode *dst = &ds->dst[j];
-            SchDec *dec;
             int ret;
 
-            if (ds->dst_finished[j] || dst->type != SCH_NODE_TYPE_DEC)
+            if (ds->dst_finished[j])
                 continue;
 
-            dec = &sch->dec[dst->idx];
+            // Send flush packet to decoders
+            if (dst->type == SCH_NODE_TYPE_DEC) {
+                SchDec *dec = &sch->dec[dst->idx];
 
-            ret = tq_send(dec->queue, 0, pkt);
-            if (ret < 0)
-                return ret;
-
-            if (dec->queue_end_ts) {
-                Timestamp ts;
-                ret = av_thread_message_queue_recv(dec->queue_end_ts, &ts, 0);
+                ret = tq_send(dec->queue, 0, pkt);
                 if (ret < 0)
                     return ret;
 
-                if (max_end_ts.ts == AV_NOPTS_VALUE ||
-                    (ts.ts != AV_NOPTS_VALUE &&
-                     av_compare_ts(max_end_ts.ts, max_end_ts.tb, ts.ts, ts.tb) < 0))
-                    max_end_ts = ts;
+                if (dec->queue_end_ts) {
+                    Timestamp ts;
+                    ret = av_thread_message_queue_recv(dec->queue_end_ts, &ts, 0);
+                    if (ret < 0)
+                        return ret;
 
+                    if (max_end_ts.ts == AV_NOPTS_VALUE ||
+                        (ts.ts != AV_NOPTS_VALUE &&
+                         av_compare_ts(max_end_ts.ts, max_end_ts.tb, ts.ts, ts.tb) < 0))
+                        max_end_ts = ts;
+                }
+            }
+            // Also send flush packet to filtergraph inputs
+            else if (dst->type == SCH_NODE_TYPE_FILTER_IN) {
+                SchFilterGraph *fg = &sch->filters[dst->idx];
+                AVFrame *flush_frame = av_frame_alloc();
+                if (!flush_frame)
+                    return AVERROR(ENOMEM);
+                
+                // Send flush frame (empty frame signals flush)
+                ret = tq_send(fg->queue, dst->idx_stream, flush_frame);
+                av_frame_free(&flush_frame);
+                if (ret < 0 && ret != AVERROR_EOF)
+                    return ret;
             }
         }
     }
