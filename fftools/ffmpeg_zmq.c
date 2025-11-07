@@ -64,6 +64,12 @@ static ZMQContext *zmq_ctx = NULL;
 
 // Demuxer is private to ffmpeg_demux.c, but InputFile is its first member
 // so we can safely access the control fields via this forward declaration
+// Timestamp is a struct with int64_t ts + AVRational tb (16 bytes)
+typedef struct {
+    int64_t    ts;
+    AVRational tb;
+} Timestamp;
+
 typedef struct Demuxer {
     InputFile             f;
     char                  log_name[32];
@@ -74,9 +80,9 @@ typedef struct Demuxer {
     int                   accurate_seek;
     int                   loop;
     int                   have_audio_dec;
-    void                 *duration;
-    void                 *min_pts;
-    void                 *max_pts;
+    Timestamp             duration;    // NOT void* - it's a 16-byte struct!
+    Timestamp             min_pts;     // NOT void* - it's a 16-byte struct!
+    Timestamp             max_pts;     // NOT void* - it's a 16-byte struct!
     int                   nb_streams_warn;
     float                 readrate;
     double                readrate_initial_burst;
